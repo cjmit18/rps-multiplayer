@@ -158,7 +158,7 @@ export default {
         })
       );
 
-      const room = normalizeRoomForClient((await roomResponse.json()) as RoomState, roomId);
+      const room = normalizeRoomForClient((await roomResponse.json()) as RoomState, roomId, name);
       return Response.json(room, { status: 201 });
     }
 
@@ -184,12 +184,13 @@ export default {
         return Response.json(payload, { status: roomResponse.status });
       }
 
-      return Response.json(normalizeRoomForClient(payload as RoomState, roomId));
+      return Response.json(normalizeRoomForClient(payload as RoomState, roomId, name));
     }
 
     const roomMatch = /^\/api\/rooms\/([^/]+)$/.exec(url.pathname);
     if (roomMatch && request.method === "GET") {
       const roomId = roomMatch[1];
+      const viewerName = new URL(request.url).searchParams.get("playerName") ?? undefined;
       const stub = appEnv.RPS_ROOMS.get(appEnv.RPS_ROOMS.idFromName(roomId));
       const roomResponse = await stub.fetch(new Request("https://example.com/"));
       const payload = await roomResponse.json();
@@ -198,7 +199,7 @@ export default {
         return Response.json(payload, { status: roomResponse.status });
       }
 
-      return Response.json(normalizeRoomForClient(payload as RoomState, roomId));
+      return Response.json(normalizeRoomForClient(payload as RoomState, roomId, viewerName));
     }
 
     const moveMatch = /^\/api\/rooms\/([^/]+)\/move$/.exec(url.pathname);
@@ -220,38 +221,39 @@ export default {
         })
       );
 
-      const room = normalizeRoomForClient((await roomResponse.json()) as RoomState, roomId);
-      if (room.status === "finished" && room.lastResult) {
-        const [playerOne, playerTwo] = room.players;
-        if (room.lastResult.winner === "player-one") {
+      const roomPayload = (await roomResponse.json()) as RoomState;
+      if (roomPayload.status === "finished" && roomPayload.lastResult) {
+        const [playerOne, playerTwo] = roomPayload.players;
+        if (roomPayload.lastResult.winner === "player-one") {
           await recordMatchResult(
             {
               winnerName: playerOne.name,
               loserName: playerTwo.name,
-              winnerMove: room.lastResult.playerOneMove ?? "rock",
-              loserMove: room.lastResult.playerTwoMove ?? "rock",
+              winnerMove: roomPayload.lastResult.playerOneMove ?? "rock",
+              loserMove: roomPayload.lastResult.playerTwoMove ?? "rock",
             },
             appEnv.DB,
           );
-        } else if (room.lastResult.winner === "player-two") {
+        } else if (roomPayload.lastResult.winner === "player-two") {
           await recordMatchResult(
             {
               winnerName: playerTwo.name,
               loserName: playerOne.name,
-              winnerMove: room.lastResult.playerTwoMove ?? "rock",
-              loserMove: room.lastResult.playerOneMove ?? "rock",
+              winnerMove: roomPayload.lastResult.playerTwoMove ?? "rock",
+              loserMove: roomPayload.lastResult.playerOneMove ?? "rock",
             },
             appEnv.DB,
           );
         }
       }
 
-      return Response.json(room);
+      return Response.json(normalizeRoomForClient(roomPayload, roomId, playerName));
     }
 
     const resetMatch = /^\/api\/rooms\/([^/]+)\/reset$/.exec(url.pathname);
     if (resetMatch && request.method === "POST") {
       const roomId = resetMatch[1];
+      const viewerName = new URL(request.url).searchParams.get("playerName") ?? undefined;
       const stub = appEnv.RPS_ROOMS.get(appEnv.RPS_ROOMS.idFromName(roomId));
       const roomResponse = await stub.fetch(new Request("https://example.com/reset", { method: "POST" }));
       const payload = await roomResponse.json();
@@ -260,7 +262,7 @@ export default {
         return Response.json(payload, { status: roomResponse.status });
       }
 
-      return Response.json(normalizeRoomForClient(payload as RoomState, roomId));
+      return Response.json(normalizeRoomForClient(payload as RoomState, roomId, viewerName));
     }
 
     return Response.json({ error: "Not found" }, { status: 404 });

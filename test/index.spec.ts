@@ -57,6 +57,36 @@ describe("room API normalization", () => {
 		expect(room.id).toBe("lookup-room-id");
 		expect(room.players).toHaveLength(2);
 	});
+
+	it("hides the other player's move from a waiting player", () => {
+		const room = normalizeRoomForClient(
+			{
+				id: "room-id",
+				players: [{ name: "alice", move: "rock" }, { name: "bob", move: "scissors" }],
+				status: "waiting",
+			},
+			"room-id",
+			"alice"
+		);
+
+		expect(room.players).toEqual([{ name: "alice", move: "rock" }, { name: "bob" }]);
+	});
+
+	it("keeps the other player's move hidden after the round finishes", () => {
+		const room = normalizeRoomForClient(
+			{
+				id: "room-id",
+				players: [{ name: "alice", move: "rock" }, { name: "bob", move: "scissors" }],
+				status: "finished",
+				lastResult: { winner: "player-one", playerOneMove: "rock", playerTwoMove: "scissors" },
+			},
+			"room-id",
+			"alice"
+		);
+
+		expect(room.players).toEqual([{ name: "alice", move: "rock" }, { name: "bob" }]);
+		expect(room.lastResult).toEqual({ winner: "player-one" });
+	});
 });
 
 describe("room reset flow", () => {

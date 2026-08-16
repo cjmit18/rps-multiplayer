@@ -107,7 +107,7 @@ async function refreshRoom() {
     updateRoomUI(null);
     return;
   }
-  const room = await api(`/api/rooms/${state.roomId}`);
+  const room = await api(`/api/rooms/${state.roomId}?playerName=${encodeURIComponent(state.playerName || '')}`);
   updateRoomUI(room);
   const playersText = room.players.length >= 2 ? 'Both players are here. Choose your move.' : 'Waiting for another player to join.';
   if (room.status === 'finished') {
@@ -168,7 +168,7 @@ document.getElementById('resetRoom').addEventListener('click', async () => {
     return;
   }
   try {
-    const room = await api(`/api/rooms/${state.roomId}/reset`, { method: 'POST' });
+    const room = await api(`/api/rooms/${state.roomId}/reset?playerName=${encodeURIComponent(state.playerName || '')}`, { method: 'POST' });
     updateRoomUI(room);
     setStatus('New round started. Make your next move!');
   } catch (error) {

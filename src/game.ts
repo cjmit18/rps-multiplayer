@@ -32,10 +32,19 @@ export function getPlayer(room: RoomState, playerName: string): PlayerState | un
   return room.players.find((player) => player.name.toLowerCase() === playerName.toLowerCase());
 }
 
-export function normalizeRoomForClient(room: RoomState, roomId: string): RoomState {
+export function normalizeRoomForClient(room: RoomState, roomId: string, viewerName?: string): RoomState {
   return {
     ...room,
     id: roomId,
+    players: room.players.map((player) => {
+      const isViewer = viewerName && player.name.toLowerCase() === viewerName.toLowerCase();
+      return isViewer
+        ? { ...player }
+        : { name: player.name };
+    }),
+    lastResult: room.status === "finished" && room.lastResult
+      ? { winner: room.lastResult.winner }
+      : undefined,
   };
 }
 
