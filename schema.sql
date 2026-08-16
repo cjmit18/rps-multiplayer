@@ -1,0 +1,10 @@
+CREATE TABLE IF NOT EXISTS leaderboard (
+  name TEXT PRIMARY KEY,
+  wins INTEGER NOT NULL DEFAULT 0,
+  losses INTEGER NOT NULL DEFAULT 0,
+  ties INTEGER NOT NULL DEFAULT 0,
+  updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE INDEX IF NOT EXISTS idx_leaderboard_rank
+  ON leaderboard (wins DESC, losses ASC, name ASC);

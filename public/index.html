@@ -1,0 +1,59 @@
+<!doctype html>
+<html lang="en">
+	<head>
+		<meta charset="UTF-8" />
+		<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+		<title>RPS Multiplayer</title>
+		<link rel="stylesheet" href="/styles.css" />
+	</head>
+	<body>
+		<div class="app-shell">
+			<h1>Rock Paper Scissors</h1>
+
+			<section class="panel hero-panel">
+				<div class="field-group">
+					<label for="playerName">Your name</label>
+					<input id="playerName" placeholder="Enter your name" value="player-one" />
+				</div>
+
+				<div class="action-row">
+					<button id="createRoom">Create room</button>
+					<button id="joinRoom" class="secondary">Join room</button>
+				</div>
+
+				<div class="field-group">
+					<label for="roomId">Room code</label>
+					<input id="roomId" placeholder="Paste a room code to join" />
+				</div>
+			</section>
+
+			<section class="panel board-panel">
+				<div class="board-header">
+					<h2>Current room</h2>
+					<span id="roomBadge" class="badge neutral">No room</span>
+				</div>
+
+				<p id="roomStatus" class="status-text">Create a room or join one to start playing.</p>
+				<div id="playersList" class="players-list"></div>
+				<div id="resultBox" class="result-box hidden"></div>
+
+				<div class="move-panel">
+					<h3>Choose your move</h3>
+					<div class="row" id="moveButtons">
+						<button data-move="rock">Rock</button>
+						<button data-move="paper">Paper</button>
+						<button data-move="scissors">Scissors</button>
+					</div>
+					<button id="resetRoom" class="secondary">Play again</button>
+				</div>
+			</section>
+
+			<section class="panel leaderboard-panel" id="leaderboard">
+				<h2>Leaderboard</h2>
+				<ul id="leaderboardList" class="leaderboard-list"></ul>
+			</section>
+		</div>
+
+		<script src="/app.js"></script>
+	</body>
+</html>
