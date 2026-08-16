@@ -7,6 +7,7 @@ A lightweight Cloudflare Worker game where two players join a room, choose a mov
 - Front-end: static HTML, CSS, and JavaScript in `public/`
 - Application logic: TypeScript Worker in `src/index.ts`
 - Persistence: Durable Objects for room state and D1 for leaderboard records
+- Authentication: D1 users plus signed HttpOnly session cookies
 - Tests: Vitest coverage in `test/`
 
 ## Recommended team split
@@ -53,10 +54,21 @@ Responsible for:
 
 ```bash
 npm install
+npx wrangler d1 migrations apply rps-multiplayer-db --local
+npx wrangler secret put AUTH_SECRET
 npm run dev
 ```
 
 Then open the local Worker URL reported by Wrangler.
+
+Before deploying, apply the auth migration to the remote database and configure a strong secret:
+
+```bash
+npx wrangler d1 migrations apply rps-multiplayer-db --remote
+npx wrangler secret put AUTH_SECRET
+```
+
+The browser now authenticates with `/api/auth/register`, `/api/auth/login`, `/api/auth/me`, and `/api/auth/logout`. Room and move endpoints require the signed session cookie; they no longer accept a caller-provided player name or user ID.
 
 ## Test suite
 

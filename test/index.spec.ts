@@ -27,16 +27,22 @@ describe("RPS game logic", () => {
 });
 
 describe("RPS room flow", () => {
-	it("records both player moves and resolves the winner for the room", () => {
+	it("plays a best-of-three match and resolves after one player wins twice", () => {
 		const room = createRoom("alice");
 		const joined = joinRoom(room.id, "bob");
 		expect(joined.players).toHaveLength(2);
 
 		submitMove(room.id, "alice", "rock");
-		const finalRoom = submitMove(room.id, "bob", "scissors");
+		const firstRound = submitMove(room.id, "bob", "scissors");
+		expect(firstRound.status).toBe("waiting");
+		expect(firstRound.scores).toEqual({ playerOne: 1, playerTwo: 0 });
+
+		submitMove(room.id, "alice", "paper");
+		const finalRoom = submitMove(room.id, "bob", "rock");
 
 		expect(finalRoom.status).toBe("finished");
 		expect(finalRoom.winner).toBe("alice");
+		expect(finalRoom.scores).toEqual({ playerOne: 2, playerTwo: 0 });
 		expect(finalRoom.lastResult).toMatchObject({
 			winner: "player-one",
 		});
@@ -48,7 +54,7 @@ describe("room API normalization", () => {
 		const room = normalizeRoomForClient(
 			{
 				id: "durable-object-room-id",
-				players: [{ name: "alice" }, { name: "bob" }],
+				players: [{ userId: "alice-id", name: "alice" }, { userId: "bob-id", name: "bob" }],
 				status: "waiting",
 			},
 			"lookup-room-id"
@@ -62,7 +68,7 @@ describe("room API normalization", () => {
 		const room = normalizeRoomForClient(
 			{
 				id: "room-id",
-				players: [{ name: "alice", move: "rock" }, { name: "bob", move: "scissors" }],
+				players: [{ userId: "alice-id", name: "alice", move: "rock" }, { userId: "bob-id", name: "bob", move: "scissors" }],
 				status: "waiting",
 			},
 			"room-id",
@@ -76,7 +82,7 @@ describe("room API normalization", () => {
 		const room = normalizeRoomForClient(
 			{
 				id: "room-id",
-				players: [{ name: "alice", move: "rock" }, { name: "bob", move: "scissors" }],
+				players: [{ userId: "alice-id", name: "alice", move: "rock" }, { userId: "bob-id", name: "bob", move: "scissors" }],
 				status: "finished",
 				lastResult: { winner: "player-one", playerOneMove: "rock", playerTwoMove: "scissors" },
 			},
@@ -101,6 +107,7 @@ describe("room reset flow", () => {
 		expect(reset.status).toBe("waiting");
 		expect(reset.lastResult).toBeUndefined();
 		expect(reset.winner).toBeUndefined();
+		expect(reset.scores).toEqual({ playerOne: 0, playerTwo: 0 });
 		expect(reset.players).toHaveLength(2);
 		expect(reset.players.every((player) => !player.move)).toBe(true);
 	});
@@ -109,6 +116,8 @@ describe("room reset flow", () => {
 describe("leaderboard updates", () => {
 	it("increments win and loss counters after a completed match", () => {
 		const leaderboard = recordMatchResult({
+			winnerUserId: "alice-id",
+			loserUserId: "bob-id",
 			winnerName: "alice",
 			loserName: "bob",
 			winnerMove: "rock",

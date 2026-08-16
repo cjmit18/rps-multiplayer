@@ -3,54 +3,72 @@
 	<head>
 		<meta charset="UTF-8" />
 		<meta name="viewport" content="width=device-width, initial-scale=1.0" />
-		<title>RPS Multiplayer</title>
+		<meta name="theme-color" content="#101b2d" />
+		<title>Rally | Rock Paper Scissors</title>
 		<link rel="stylesheet" href="/styles.css" />
 	</head>
 	<body>
 		<div class="app-shell">
-			<h1>Rock Paper Scissors</h1>
+			<header class="masthead">
+				<div><p class="eyebrow">Live match room</p><h1>Rally <span>/</span> RPS</h1></div>
+				<p class="tagline">Quick hands. Clean reads. First to two takes the match.</p>
+			</header>
 
-			<section class="panel hero-panel">
+			<section class="panel setup-panel" aria-labelledby="setup-title">
+				<div class="setup-intro"><div><p class="section-kicker">01 / Your account</p><h2 id="setup-title">Enter the arena</h2></div><p>Sign in to keep your matches and leaderboard record tied to you.</p></div>
 				<div class="field-group">
-					<label for="playerName">Your name</label>
-					<input id="playerName" placeholder="Enter your name" value="player-one" />
+					<label for="authUsername">Username</label>
+					<input id="authUsername" placeholder="Choose a username" autocomplete="username" maxlength="24" />
 				</div>
+				<div class="field-group">
+					<label for="authPassword">Password</label>
+					<input id="authPassword" type="password" placeholder="At least 8 characters" autocomplete="current-password" minlength="8" />
+				</div>
+				<div class="action-row auth-actions">
+					<button id="loginButton" type="button">Sign in</button>
+					<button id="registerButton" class="secondary" type="button">Create account</button>
+				</div>
+				<p id="authStatus" class="status-text" role="status" aria-live="polite"></p>
+				<div id="authIdentity" class="auth-identity hidden">
+					<span>Signed in as <strong id="authUsernameDisplay"></strong></span>
+					<button id="logoutButton" class="secondary" type="button">Sign out</button>
+				</div>
+			</section>
 
+			<section class="panel room-setup-panel" aria-labelledby="room-setup-title">
+				<div class="setup-intro"><div><p class="section-kicker">02 / Find a room</p><h2 id="room-setup-title">Start a match</h2></div><p>Open a room and share its code, or join someone already waiting.</p></div>
 				<div class="action-row">
-					<button id="createRoom">Create room</button>
-					<button id="joinRoom" class="secondary">Join room</button>
+					<button id="createRoom" type="button" disabled>Create room</button>
+					<button id="joinRoom" class="secondary" type="button" disabled>Join room</button>
 				</div>
-
 				<div class="field-group">
 					<label for="roomId">Room code</label>
-					<input id="roomId" placeholder="Paste a room code to join" />
+					<input id="roomId" placeholder="Paste a room code to join" autocomplete="off" spellcheck="false" />
 				</div>
 			</section>
 
-			<section class="panel board-panel">
+			<section class="panel board-panel" aria-labelledby="room-title">
 				<div class="board-header">
-					<h2>Current room</h2>
+					<div><p class="section-kicker">03 / Live match</p><h2 id="room-title">Current room</h2></div>
 					<span id="roomBadge" class="badge neutral">No room</span>
 				</div>
+				<div class="room-meta"><p id="roomStatus" class="status-text" aria-live="polite">Create a room or join one to start playing.</p><button id="copyRoom" type="button" title="Copy room code" aria-label="Copy room code">Copy code</button></div>
+				<div class="arena"><div id="playersList" class="players-list" aria-live="polite"></div><div class="score-box"><span class="score-label">Match score</span><p id="scoreBox" class="score-text">Best of 3: 0 - 0</p></div><div id="resultBox" class="result-box hidden" aria-live="assertive"></div></div>
 
-				<p id="roomStatus" class="status-text">Create a room or join one to start playing.</p>
-				<div id="playersList" class="players-list"></div>
-				<div id="resultBox" class="result-box hidden"></div>
-
-				<div class="move-panel">
-					<h3>Choose your move</h3>
+				<div class="move-panel" aria-labelledby="move-title">
+					<h3 id="move-title">Choose your move</h3>
 					<div class="row" id="moveButtons">
-						<button data-move="rock">Rock</button>
-						<button data-move="paper">Paper</button>
-						<button data-move="scissors">Scissors</button>
+						<button data-move="rock" type="button" aria-label="Choose rock">Rock</button>
+						<button data-move="paper" type="button" aria-label="Choose paper">Paper</button>
+						<button data-move="scissors" type="button" aria-label="Choose scissors">Scissors</button>
 					</div>
-					<button id="resetRoom" class="secondary">Play again</button>
+					<button id="resetRoom" class="secondary" type="button">New match</button>
 				</div>
 			</section>
 
-			<section class="panel leaderboard-panel" id="leaderboard">
-				<h2>Leaderboard</h2>
-				<ul id="leaderboardList" class="leaderboard-list"></ul>
+			<section class="panel leaderboard-panel" id="leaderboard" aria-labelledby="leaderboard-title">
+				<div class="leaderboard-heading"><div><p class="section-kicker">03 / The standings</p><h2 id="leaderboard-title">Leaderboard</h2></div><span>All-time room results</span></div>
+				<ul id="leaderboardList" class="leaderboard-list" aria-live="polite" aria-label="Leaderboard standings"></ul>
 			</section>
 		</div>
 

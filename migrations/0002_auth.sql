@@ -8,15 +8,13 @@ CREATE TABLE IF NOT EXISTS users (
 
 CREATE TABLE IF NOT EXISTS leaderboard (
   name TEXT PRIMARY KEY,
-  user_id TEXT REFERENCES users(id),
   wins INTEGER NOT NULL DEFAULT 0,
   losses INTEGER NOT NULL DEFAULT 0,
   ties INTEGER NOT NULL DEFAULT 0,
   updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
 );
 
-CREATE INDEX IF NOT EXISTS idx_leaderboard_rank
-  ON leaderboard (wins DESC, losses ASC, name ASC);
+ALTER TABLE leaderboard ADD COLUMN user_id TEXT REFERENCES users(id);
 
 CREATE UNIQUE INDEX IF NOT EXISTS idx_leaderboard_user_id
   ON leaderboard (user_id)

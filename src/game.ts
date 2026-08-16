@@ -2,6 +2,7 @@ export type Move = "rock" | "paper" | "scissors";
 export type RoomStatus = "waiting" | "finished";
 
 export interface PlayerState {
+  userId: string;
   name: string;
   move?: Move;
 }
@@ -10,6 +11,10 @@ export interface RoomState {
   id: string;
   players: PlayerState[];
   status: RoomStatus;
+  scores?: {
+    playerOne: number;
+    playerTwo: number;
+  };
   winner?: string;
   lastResult?: {
     winner: "player-one" | "player-two" | "draw";
@@ -28,21 +33,21 @@ export function isMove(value: unknown): value is Move {
   return value === "rock" || value === "paper" || value === "scissors";
 }
 
-export function getPlayer(room: RoomState, playerName: string): PlayerState | undefined {
-  return room.players.find((player) => player.name.toLowerCase() === playerName.toLowerCase());
+export function getPlayer(room: RoomState, userId: string): PlayerState | undefined {
+  return room.players.find((player) => player.userId === userId);
 }
 
-export function normalizeRoomForClient(room: RoomState, roomId: string, viewerName?: string): RoomState {
+export function normalizeRoomForClient(room: RoomState, roomId: string, viewerUserId?: string): RoomState {
   return {
     ...room,
     id: roomId,
     players: room.players.map((player) => {
-      const isViewer = viewerName && player.name.toLowerCase() === viewerName.toLowerCase();
+      const isViewer = viewerUserId && player.userId === viewerUserId;
       return isViewer
         ? { ...player }
-        : { name: player.name };
+        : { userId: player.userId, name: player.name };
     }),
-    lastResult: room.status === "finished" && room.lastResult
+    lastResult: room.lastResult
       ? { winner: room.lastResult.winner }
       : undefined,
   };
