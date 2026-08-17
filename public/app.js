@@ -141,7 +141,7 @@ function startPolling() {
 
 function setBusy(key, busy) {
   if (busy) state.busy.add(key); else state.busy.delete(key);
-  const selectors = { create: '#createRoom', join: '#joinRoom', reset: '#resetRoom', move: '[data-move]', auth: '#loginButton, #registerButton' };
+  const selectors = { create: '#createRoom', join: '#joinRoom', reset: '#resetRoom', move: '[data-move]', auth: '#loginButton, #registerButton, #guestButton' };
   document.querySelectorAll(selectors[key] || '').forEach((element) => { element.disabled = busy; element.setAttribute('aria-busy', String(busy)); });
   updateMoveButtons(state.room);
 }
@@ -174,6 +174,19 @@ async function authenticate(endpoint) {
 
 getElement('loginButton')?.addEventListener('click', () => authenticate('/api/auth/login'));
 getElement('registerButton')?.addEventListener('click', () => authenticate('/api/auth/register'));
+getElement('guestButton')?.addEventListener('click', async () => {
+  if (isBusy('auth')) return;
+  setBusy('auth', true);
+  setAuthStatus('Starting guest session...');
+  try {
+    const result = await api('/api/auth/guest', { method: 'POST', body: '{}' });
+    state.user = result.user;
+    updateAuthUI();
+    setAuthStatus(`Playing as ${state.user.username}.`);
+    setStatus('You are ready to create or join a room.');
+  } catch (error) { setAuthStatus(errorMessage(error), true); }
+  finally { setBusy('auth', false); }
+});
 getElement('logoutButton')?.addEventListener('click', async () => {
   await api('/api/auth/logout', { method: 'POST' });
   if (state.pollId) clearInterval(state.pollId);

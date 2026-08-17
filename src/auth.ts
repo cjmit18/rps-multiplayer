@@ -90,6 +90,18 @@ export async function registerUser(db: D1Database, username: string, password: s
   return { id, username };
 }
 
+export async function createGuestUser(db: D1Database): Promise<AuthUser> {
+  for (let attempt = 0; attempt < 3; attempt += 1) {
+    const username = `guest_${crypto.randomUUID().replaceAll("-", "").slice(0, 12)}`;
+    try {
+      return await registerUser(db, username, `${crypto.randomUUID()}${crypto.randomUUID()}`);
+    } catch (error) {
+      if (!String(error).toLowerCase().includes("unique") || attempt === 2) throw error;
+    }
+  }
+  throw new Error("Unable to create a guest account");
+}
+
 export async function verifyUser(db: D1Database, username: string, password: string): Promise<AuthUser | undefined> {
   const user = await db.prepare(
     "SELECT id, username, password_hash, password_salt FROM users WHERE username = ?",

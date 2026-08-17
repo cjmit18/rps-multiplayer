@@ -55,11 +55,10 @@ Responsible for:
 ```bash
 npm install
 npx wrangler d1 migrations apply rps-multiplayer-db --local
-npx wrangler secret put AUTH_SECRET
 npm run dev
 ```
 
-Then open the local Worker URL reported by Wrangler.
+`wrangler dev` reads `AUTH_SECRET` from the untracked `.dev.vars` file. A development value is included locally; replace it with a unique value before sharing the environment. Then open the local Worker URL reported by Wrangler.
 
 Before deploying, apply the auth migration to the remote database and configure a strong secret:
 
@@ -68,7 +67,7 @@ npx wrangler d1 migrations apply rps-multiplayer-db --remote
 npx wrangler secret put AUTH_SECRET
 ```
 
-The browser now authenticates with `/api/auth/register`, `/api/auth/login`, `/api/auth/me`, and `/api/auth/logout`. Room and move endpoints require the signed session cookie; they no longer accept a caller-provided player name or user ID.
+The browser can create an account, sign in, or play as a generated guest. Authentication uses `/api/auth/register`, `/api/auth/login`, `/api/auth/guest`, `/api/auth/me`, and `/api/auth/logout`. Room and move endpoints require the signed session cookie; they no longer accept a caller-provided player name or user ID.
 
 ## Test suite
 

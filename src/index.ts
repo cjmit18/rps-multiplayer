@@ -12,6 +12,7 @@ import {
 import { getLeaderboardFromDb, recordMatchResult } from "./leaderboard";
 import {
   clearSessionCookie,
+  createGuestUser,
   createSessionCookie,
   getSessionUser,
   jsonWithCookie,
@@ -190,6 +191,14 @@ export default {
         }
         throw error;
       }
+    }
+
+    if (url.pathname === "/api/auth/guest" && request.method === "POST") {
+      if (!appEnv.DB || !appEnv.AUTH_SECRET) {
+        return Response.json({ error: "Authentication is not configured" }, { status: 503 });
+      }
+      const user = await createGuestUser(appEnv.DB);
+      return jsonWithCookie({ user }, await createSessionCookie(user.id, appEnv.AUTH_SECRET), { status: 201 });
     }
 
     if (url.pathname === "/api/auth/login" && request.method === "POST") {
