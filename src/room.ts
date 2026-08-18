@@ -1,5 +1,7 @@
 import { type Move, type RoomState, getPlayer, resolveRpsRound } from "./game";
 
+// In-memory room store used by the game-logic tests only. The deployed Worker uses the
+// Durable-Object-backed RpsRoom class in index.ts instead, which persists state per room.
 export const rooms = new Map<string, RoomState>();
 
 export function createRoom(playerName: string): RoomState {

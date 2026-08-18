@@ -9,7 +9,7 @@ interface StoredUser extends AuthUser {
 }
 
 const SESSION_COOKIE = "session";
-const SESSION_MAX_AGE = 60 * 60 * 24 * 7;
+const SESSION_MAX_AGE = 60 * 60 * 24 * 7; // 7 days
 
 function toBase64Url(bytes: Uint8Array): string {
   let binary = "";
@@ -32,6 +32,7 @@ function hexToBytes(value: string): Uint8Array {
   return Uint8Array.from(value.match(/.{2}/g) ?? [], (pair) => Number.parseInt(pair, 16));
 }
 
+// Compares every byte without early exit so timing doesn't leak how many bytes matched.
 function constantTimeEqual(left: Uint8Array, right: Uint8Array): boolean {
   if (left.length !== right.length) return false;
   let difference = 0;
@@ -39,6 +40,7 @@ function constantTimeEqual(left: Uint8Array, right: Uint8Array): boolean {
   return difference === 0;
 }
 
+// PBKDF2 with a per-user salt and high iteration count slows down offline brute-forcing of stolen hashes.
 async function hashPassword(password: string, salt: string): Promise<string> {
   const passwordKey = await crypto.subtle.importKey(
     "raw",
@@ -55,6 +57,7 @@ async function hashPassword(password: string, salt: string): Promise<string> {
   return bytesToHex(new Uint8Array(derivedBits));
 }
 
+// Signs `userId.expiresAt` so the cookie is tamper-evident without needing server-side session storage.
 async function signSession(payload: string, secret: string): Promise<string> {
   const key = await crypto.subtle.importKey(
     "raw",
@@ -90,6 +93,7 @@ export async function registerUser(db: D1Database, username: string, password: s
   return { id, username };
 }
 
+// Retries on the (extremely unlikely) chance a random guest username collides with an existing one.
 export async function createGuestUser(db: D1Database): Promise<AuthUser> {
   for (let attempt = 0; attempt < 3; attempt += 1) {
     const username = `guest_${crypto.randomUUID().replaceAll("-", "").slice(0, 12)}`;
@@ -115,6 +119,7 @@ export async function verifyUser(db: D1Database, username: string, password: str
 
 export async function createSessionCookie(userId: string, secret: string): Promise<string> {
   const token = await signSession(`${userId}.${Math.floor(Date.now() / 1000) + SESSION_MAX_AGE}`, secret);
+  // HttpOnly blocks JS access (XSS), Secure requires HTTPS, SameSite=Strict blocks cross-site sends (CSRF).
   return `${SESSION_COOKIE}=${encodeURIComponent(token)}; HttpOnly; Secure; SameSite=Strict; Path=/; Max-Age=${SESSION_MAX_AGE}`;
 }
 
@@ -139,6 +144,7 @@ export async function getSessionUser(db: D1Database, request: Request, secret: s
     return undefined;
   }
 
+  // Re-derive the expected signature rather than trusting the one on the cookie, then compare safely.
   const expectedToken = await signSession(payload, secret);
   const expectedSignature = fromBase64Url(expectedToken.slice(expectedToken.lastIndexOf(".") + 1));
   if (!constantTimeEqual(signature, expectedSignature)) return undefined;

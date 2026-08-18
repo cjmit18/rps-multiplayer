@@ -56,6 +56,7 @@ export async function syncLeaderboardFromMatch(
   const { winnerUserId, loserUserId, winnerName, loserName, winnerMove, loserMove } = params;
 
   const updateEntry = (userId: string, name: string, field: "wins" | "losses" | "ties") => db.prepare(
+    // Partial unique index on user_id means this upsert only dedupes rows that have a user_id set.
     `INSERT INTO leaderboard (user_id, name, ${field}, updated_at) VALUES (?, ?, 1, CURRENT_TIMESTAMP) ON CONFLICT(user_id) WHERE user_id IS NOT NULL DO UPDATE SET name = excluded.name, ${field} = ${field} + 1, updated_at = CURRENT_TIMESTAMP`,
   ).bind(userId, name);
 
@@ -77,6 +78,7 @@ export function recordMatchResult(
   },
   db?: D1Database,
 ): Promise<LeaderboardEntry[]> | LeaderboardEntry[] {
+  // Without a DB binding (e.g. local dev without D1), fall back to a request-scoped in-memory tally.
   if (!db) {
     const fallback = new Map<string, LeaderboardEntry>();
     const winnerEntry = fallback.get(params.winnerName) ?? {

@@ -46,6 +46,17 @@
 					<label for="roomId">Room code</label>
 					<input id="roomId" placeholder="Paste a room code to join" autocomplete="off" spellcheck="false" />
 				</div>
+				<div class="field-group">
+					<label for="botDifficulty">Bot difficulty</label>
+					<select id="botDifficulty">
+						<option value="easy">Easy</option>
+						<option value="medium" selected>Medium</option>
+						<option value="hard">Hard</option>
+					</select>
+				</div>
+				<div class="action-row">
+					<button id="playBot" class="secondary" type="button" disabled>Play vs bot</button>
+				</div>
 			</section>
 
 			<section class="panel board-panel" aria-labelledby="room-title">

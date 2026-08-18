@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
 	createRoom,
+	getBotMove,
 	joinRoom,
 	normalizeRoomForClient,
 	resetRoom,
@@ -130,5 +131,31 @@ describe("leaderboard updates", () => {
 				expect.objectContaining({ name: "bob", wins: 0, losses: 1, ties: 0 }),
 			])
 		);
+	});
+});
+
+describe("bot opponent", () => {
+	it("plays a valid move for easy difficulty regardless of history", () => {
+		for (let attempt = 0; attempt < 20; attempt += 1) {
+			expect(["rock", "paper", "scissors"]).toContain(getBotMove("easy", []));
+		}
+	});
+
+	it("plays a valid move for medium difficulty regardless of history", () => {
+		const history = ["rock", "paper", "scissors", "rock", "paper"] as const;
+		for (let attempt = 0; attempt < 20; attempt += 1) {
+			expect(["rock", "paper", "scissors"]).toContain(getBotMove("medium", [...history]));
+		}
+	});
+
+	it("counters the predicted next move for hard difficulty", () => {
+		// After "rock" the player has always followed up with "scissors", so hard should predict
+		// "scissors" and counter with "rock".
+		const history = ["rock", "scissors", "rock", "scissors", "rock"] as const;
+		expect(getBotMove("hard", [...history])).toBe("rock");
+	});
+
+	it("falls back to a valid random move for hard difficulty with no history", () => {
+		expect(["rock", "paper", "scissors"]).toContain(getBotMove("hard", []));
 	});
 });

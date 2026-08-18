@@ -30,7 +30,7 @@ function updateAuthUI() {
   const identity = getElement('authIdentity');
   const display = getElement('authUsernameDisplay');
   const authFields = document.querySelectorAll('#authUsername, #authPassword, .auth-actions');
-  const roomActions = document.querySelectorAll('#createRoom, #joinRoom, #resetRoom, [data-move]');
+  const roomActions = document.querySelectorAll('#createRoom, #joinRoom, #resetRoom, [data-move], #playBot');
   if (identity) identity.classList.toggle('hidden', !state.user);
   if (display) display.textContent = state.user?.username || '';
   authFields.forEach((element) => element.classList.toggle('hidden', Boolean(state.user)));
@@ -57,7 +57,7 @@ function renderPlayers(room) {
     card.className = `player-card ${player.userId === state.user?.id ? 'current-player' : ''}`;
     const name = document.createElement('span');
     name.className = 'player-name';
-    name.textContent = `${player.name || 'Unnamed player'}${player.userId === state.user?.id ? ' (you)' : ''}`;
+    name.textContent = `${player.name || 'Unnamed player'}${player.isBot ? ' (bot)' : ''}${player.userId === state.user?.id ? ' (you)' : ''}`;
     card.append(name);
     const move = document.createElement('span');
     move.className = 'player-move';
@@ -136,12 +136,14 @@ async function refreshRoom() {
 function startPolling() {
   if (state.pollId) clearInterval(state.pollId);
   if (!state.roomId || !state.user) return;
+  // No WebSocket/push channel yet, so the opponent's moves are only seen via this 2s poll.
   state.pollId = setInterval(() => refreshRoom().catch(() => {}), 2000);
 }
 
 function setBusy(key, busy) {
+  // Tracks in-flight actions per key so buttons disable themselves and can't be double-submitted.
   if (busy) state.busy.add(key); else state.busy.delete(key);
-  const selectors = { create: '#createRoom', join: '#joinRoom', reset: '#resetRoom', move: '[data-move]', auth: '#loginButton, #registerButton, #guestButton' };
+  const selectors = { create: '#createRoom, #playBot', join: '#joinRoom', reset: '#resetRoom', move: '[data-move]', auth: '#loginButton, #registerButton, #guestButton' };
   document.querySelectorAll(selectors[key] || '').forEach((element) => { element.disabled = busy; element.setAttribute('aria-busy', String(busy)); });
   updateMoveButtons(state.room);
 }
@@ -214,6 +216,17 @@ getElement('joinRoom')?.addEventListener('click', async () => {
     state.roomId = room.id; getElement('roomId').value = room.id; updateRoomUI(room); setStatus('Joined the room successfully.'); startPolling();
   } catch (error) { setStatus(errorMessage(error), true); }
   finally { setBusy('join', false); }
+});
+
+getElement('playBot')?.addEventListener('click', async () => {
+  if (isBusy('create') || !state.user) return;
+  const difficulty = getElement('botDifficulty')?.value || 'medium';
+  setBusy('create', true); setStatus('Starting a match against the bot...');
+  try {
+    const room = await api('/api/rooms/bot', { method: 'POST', body: JSON.stringify({ difficulty }) });
+    state.roomId = room.id; getElement('roomId').value = room.id; updateRoomUI(room); setStatus('Bot match ready. Choose your move.'); startPolling();
+  } catch (error) { setStatus(errorMessage(error), true); }
+  finally { setBusy('create', false); }
 });
 
 getElement('resetRoom')?.addEventListener('click', async () => {

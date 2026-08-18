@@ -21,7 +21,7 @@ button:focus-visible, input:focus-visible { outline: 3px solid var(--lime); outl
 .setup-intro p { max-width: 360px; margin: 0; color: var(--muted-ink); font-size: 0.88rem; line-height: 1.45; text-align: right; }
 .field-group { display: grid; gap: 8px; }
 .field-group label { color: var(--muted-ink); font-size: 0.76rem; font-weight: 800; letter-spacing: 0.1em; text-transform: uppercase; }
-input { width: 100%; padding: 13px 14px; border: 1px solid var(--line); border-radius: 5px; background: var(--glass-deep); color: var(--ink); font-size: 0.98rem; }
+input, select { width: 100%; padding: 13px 14px; border: 1px solid var(--line); border-radius: 5px; background: var(--glass-deep); color: var(--ink); font-size: 0.98rem; }
 input::placeholder { color: #687990; }
 .action-row { display: flex; gap: 10px; align-items: stretch; }
 .auth-identity { display: flex; align-items: center; justify-content: space-between; gap: 14px; padding: 12px 14px; border: 1px solid var(--line); border-radius: 5px; color: var(--muted-ink); }

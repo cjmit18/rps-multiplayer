@@ -66,7 +66,7 @@
 	"d1_databases": [
 		{
 			"binding": "DB",
-			"database_name": "rps-multiplayer-db",
+			"database_name": "rps-multiplayer",
 			"database_id": "69671172-36e8-4f2b-8b9b-98a3a6609207"
 		}
 	]

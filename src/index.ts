@@ -3,8 +3,10 @@
 import {
   getPlayer,
   isMove,
+  isDifficulty,
   normalizeRoomForClient,
   resolveRpsRound,
+  getBotMove,
   type Move,
   type PlayerState,
   type RoomState,
@@ -28,6 +30,9 @@ export type AppEnv = Env & {
   AUTH_SECRET?: string;
 };
 
+// Fixed synthetic user ID for the bot player in a room; bots are never real accounts.
+const BOT_USER_ID = "bot";
+
 export * from "./game";
 export * from "./leaderboard";
 export * from "./room";
@@ -48,10 +53,12 @@ async function requireUser(request: Request, env: AppEnv): Promise<AuthUser | Re
     return Response.json({ error: "Authentication is not configured" }, { status: 503 });
   }
   const user = await getSessionUser(env.DB, request, env.AUTH_SECRET);
+  // Returning a Response (instead of throwing) lets callers early-return it directly as the handler result.
   return user ?? Response.json({ error: "Authentication required" }, { status: 401 });
 }
 
 export class RpsRoom extends DurableObject<AppEnv> {
+  // One RpsRoom instance per room ID; state lives in Durable Object storage, not this class's memory.
   async fetch(request: Request): Promise<Response> {
     const url = new URL(request.url);
     const room = (await this.ctx.storage.get<RoomState>("room")) ?? {
@@ -79,6 +86,27 @@ export class RpsRoom extends DurableObject<AppEnv> {
           await this.ctx.storage.put("room", room);
         }
 
+        return Response.json(room, { status: 201 });
+      }
+      case "/create-bot": {
+        const body = await parseJsonBody(request);
+        const userId = typeof body.userId === "string" ? body.userId : "";
+        const playerName = typeof body.username === "string" ? body.username.trim() : "";
+        const difficulty = isDifficulty(body.difficulty) ? body.difficulty : "easy";
+        if (!userId || !playerName) {
+          return Response.json({ error: "Authenticated user is required" }, { status: 400 });
+        }
+
+        room.players = [
+          { userId, name: playerName },
+          { userId: BOT_USER_ID, name: `Bot (${difficulty})`, isBot: true },
+        ];
+        room.id = room.id || crypto.randomUUID();
+        room.status = "waiting";
+        room.scores = { playerOne: 0, playerTwo: 0 };
+        room.difficulty = difficulty;
+        room.moveHistory = [];
+        await this.ctx.storage.put("room", room);
         return Response.json(room, { status: 201 });
       }
       case "/join": {
@@ -116,6 +144,14 @@ export class RpsRoom extends DurableObject<AppEnv> {
         }
 
         player.move = move;
+
+        const bot = room.players.find((candidate: PlayerState) => candidate.isBot);
+        if (bot && !bot.move) {
+          // Bot decides using history collected so far, then the human's move is recorded for next time.
+          bot.move = getBotMove(room.difficulty ?? "easy", room.moveHistory ?? []);
+          room.moveHistory = [...(room.moveHistory ?? []), move].slice(-10);
+        }
+
         if (room.players.length === 2 && room.players.every((candidate: PlayerState) => !!candidate.move)) {
           const [playerOne, playerTwo] = room.players;
           const result = resolveRpsRound(playerOne.move!, playerTwo.move!);
@@ -238,11 +274,33 @@ export default {
 
       const roomId = crypto.randomUUID();
       const stub = appEnv.RPS_ROOMS.get(appEnv.RPS_ROOMS.idFromName(roomId));
+      // The URL host is a placeholder; only the DO's internal routing on the pathname below matters.
       const roomResponse = await stub.fetch(
         new Request("https://example.com/create", {
           method: "POST",
           headers: { "content-type": "application/json" },
           body: JSON.stringify({ userId: user.id, username: user.username }),
+        })
+      );
+
+      const room = normalizeRoomForClient((await roomResponse.json()) as RoomState, roomId, user.id);
+      return Response.json(room, { status: 201 });
+    }
+
+    if (url.pathname === "/api/rooms/bot" && request.method === "POST") {
+      const userResult = await requireUser(request, appEnv);
+      if (userResult instanceof Response) return userResult;
+      const user = userResult;
+      const body = await parseJsonBody(request);
+      const difficulty = isDifficulty(body.difficulty) ? body.difficulty : "easy";
+
+      const roomId = crypto.randomUUID();
+      const stub = appEnv.RPS_ROOMS.get(appEnv.RPS_ROOMS.idFromName(roomId));
+      const roomResponse = await stub.fetch(
+        new Request("https://example.com/create-bot", {
+          method: "POST",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify({ userId: user.id, username: user.username, difficulty }),
         })
       );
 
@@ -323,7 +381,9 @@ export default {
       if (!roomResponse.ok) {
         return Response.json(roomPayload, { status: roomResponse.status });
       }
-      if (roomPayload.status === "finished" && roomPayload.lastResult) {
+      // Only persist a leaderboard update once the match has actually concluded, not after every round.
+      // Bot matches are excluded so the leaderboard only reflects human-vs-human results.
+      if (roomPayload.status === "finished" && roomPayload.lastResult && !roomPayload.players.some((candidate) => candidate.isBot)) {
         const [playerOne, playerTwo] = roomPayload.players;
         if (roomPayload.lastResult.winner === "player-one") {
           await recordMatchResult(
