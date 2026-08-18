@@ -69,5 +69,28 @@
 			"database_name": "rps-multiplayer",
 			"database_id": "69671172-36e8-4f2b-8b9b-98a3a6609207"
 		}
-	]
+	],
+	/**
+	 * Rate Limiting
+	 * https://developers.cloudflare.com/workers/runtime-apis/bindings/rate-limit/
+	 * Throttles auth endpoints (register/login/guest) per client IP to slow brute-force and spam.
+	 */
+	"ratelimits": [
+		{
+			"name": "AUTH_RATE_LIMITER",
+			"namespace_id": "1001",
+			"simple": {
+				"limit": 20,
+				"period": 60
+			}
+		}
+	],
+	/**
+	 * Cron Triggers
+	 * https://developers.cloudflare.com/workers/configuration/cron-triggers/
+	 * Daily at 03:00 UTC: purges guest accounts (and their leaderboard rows) older than 7 days.
+	 */
+	"triggers": {
+		"crons": ["0 3 * * *"]
+	}
 }

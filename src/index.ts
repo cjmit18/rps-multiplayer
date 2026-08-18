@@ -16,6 +16,7 @@ import {
   clearSessionCookie,
   createGuestUser,
   createSessionCookie,
+  deleteStaleGuestAccounts,
   getSessionUser,
   jsonWithCookie,
   registerUser,
@@ -28,10 +29,14 @@ export type AppEnv = Env & {
   RPS_ROOMS: DurableObjectNamespace;
   DB?: D1Database;
   AUTH_SECRET?: string;
+  AUTH_RATE_LIMITER?: RateLimit;
 };
 
 // Fixed synthetic user ID for the bot player in a room; bots are never real accounts.
 const BOT_USER_ID = "bot";
+
+// A room with no activity for this long is forgotten (Durable Object storage is cleared).
+const ROOM_IDLE_MS = 30 * 60 * 1000;
 
 export * from "./game";
 export * from "./leaderboard";
@@ -57,8 +62,28 @@ async function requireUser(request: Request, env: AppEnv): Promise<AuthUser | Re
   return user ?? Response.json({ error: "Authentication required" }, { status: 401 });
 }
 
+// Throttles a route per client IP; a missing binding (e.g. local dev without it configured) fails open.
+async function enforceRateLimit(request: Request, env: AppEnv, routeKey: string): Promise<Response | undefined> {
+  if (!env.AUTH_RATE_LIMITER) return undefined;
+  const ip = request.headers.get("cf-connecting-ip") ?? "unknown";
+  const { success } = await env.AUTH_RATE_LIMITER.limit({ key: `${ip}:${routeKey}` });
+  return success ? undefined : Response.json({ error: "Too many attempts. Try again later." }, { status: 429 });
+}
+
 export class RpsRoom extends DurableObject<AppEnv> {
   // One RpsRoom instance per room ID; state lives in Durable Object storage, not this class's memory.
+
+  // Persists room state and pushes back the idle-expiry alarm so active rooms are never cleared mid-match.
+  private async saveRoom(room: RoomState): Promise<void> {
+    await this.ctx.storage.put("room", room);
+    await this.ctx.storage.setAlarm(Date.now() + ROOM_IDLE_MS);
+  }
+
+  // Forgets an idle room entirely; a later request just synthesizes a fresh empty one.
+  async alarm(): Promise<void> {
+    await this.ctx.storage.deleteAll();
+  }
+
   async fetch(request: Request): Promise<Response> {
     const url = new URL(request.url);
     const room = (await this.ctx.storage.get<RoomState>("room")) ?? {
@@ -83,7 +108,7 @@ export class RpsRoom extends DurableObject<AppEnv> {
           room.id = room.id || crypto.randomUUID();
           room.status = "waiting";
           room.scores = { playerOne: 0, playerTwo: 0 };
-          await this.ctx.storage.put("room", room);
+          await this.saveRoom(room);
         }
 
         return Response.json(room, { status: 201 });
@@ -106,7 +131,7 @@ export class RpsRoom extends DurableObject<AppEnv> {
         room.scores = { playerOne: 0, playerTwo: 0 };
         room.difficulty = difficulty;
         room.moveHistory = [];
-        await this.ctx.storage.put("room", room);
+        await this.saveRoom(room);
         return Response.json(room, { status: 201 });
       }
       case "/join": {
@@ -124,7 +149,7 @@ export class RpsRoom extends DurableObject<AppEnv> {
         }
 
         room.players.push({ userId, name: playerName });
-        await this.ctx.storage.put("room", room);
+        await this.saveRoom(room);
         return Response.json(room);
       }
       case "/move": {
@@ -156,17 +181,16 @@ export class RpsRoom extends DurableObject<AppEnv> {
           const [playerOne, playerTwo] = room.players;
           const result = resolveRpsRound(playerOne.move!, playerTwo.move!);
           room.lastResult = result;
+          room.scores = room.scores ?? { playerOne: 0, playerTwo: 0 };
           if (result.winner === "player-one") {
-            room.scores = room.scores ?? { playerOne: 0, playerTwo: 0 };
             room.scores.playerOne += 1;
           } else if (result.winner === "player-two") {
-            room.scores = room.scores ?? { playerOne: 0, playerTwo: 0 };
             room.scores.playerTwo += 1;
           }
 
           delete playerOne.move;
           delete playerTwo.move;
-          if ((room.scores?.playerOne ?? 0) >= 2 || (room.scores?.playerTwo ?? 0) >= 2) {
+          if (room.scores.playerOne >= 2 || room.scores.playerTwo >= 2) {
             room.status = "finished";
             room.winner = room.scores.playerOne >= 2 ? playerOne.name : playerTwo.name;
           } else {
@@ -175,7 +199,7 @@ export class RpsRoom extends DurableObject<AppEnv> {
           }
         }
 
-        await this.ctx.storage.put("room", room);
+        await this.saveRoom(room);
         return Response.json(room);
       }
       case "/reset": {
@@ -191,7 +215,7 @@ export class RpsRoom extends DurableObject<AppEnv> {
         room.lastResult = undefined;
         room.winner = undefined;
         room.scores = { playerOne: 0, playerTwo: 0 };
-        await this.ctx.storage.put("room", room);
+        await this.saveRoom(room);
         return Response.json(room);
       }
       default:
@@ -213,6 +237,8 @@ export default {
       if (!appEnv.DB || !appEnv.AUTH_SECRET) {
         return Response.json({ error: "Authentication is not configured" }, { status: 503 });
       }
+      const rateLimited = await enforceRateLimit(request, appEnv, url.pathname);
+      if (rateLimited) return rateLimited;
       const body = await parseJsonBody(request);
       const username = typeof body.username === "string" ? body.username.trim().toLowerCase() : "";
       const password = typeof body.password === "string" ? body.password : "";
@@ -233,6 +259,8 @@ export default {
       if (!appEnv.DB || !appEnv.AUTH_SECRET) {
         return Response.json({ error: "Authentication is not configured" }, { status: 503 });
       }
+      const rateLimited = await enforceRateLimit(request, appEnv, url.pathname);
+      if (rateLimited) return rateLimited;
       const user = await createGuestUser(appEnv.DB);
       return jsonWithCookie({ user }, await createSessionCookie(user.id, appEnv.AUTH_SECRET), { status: 201 });
     }
@@ -241,6 +269,8 @@ export default {
       if (!appEnv.DB || !appEnv.AUTH_SECRET) {
         return Response.json({ error: "Authentication is not configured" }, { status: 503 });
       }
+      const rateLimited = await enforceRateLimit(request, appEnv, url.pathname);
+      if (rateLimited) return rateLimited;
       const body = await parseJsonBody(request);
       const username = typeof body.username === "string" ? body.username.trim().toLowerCase() : "";
       const password = typeof body.password === "string" ? body.password : "";
@@ -382,8 +412,11 @@ export default {
         return Response.json(roomPayload, { status: roomResponse.status });
       }
       // Only persist a leaderboard update once the match has actually concluded, not after every round.
-      // Bot matches are excluded so the leaderboard only reflects human-vs-human results.
-      if (roomPayload.status === "finished" && roomPayload.lastResult && !roomPayload.players.some((candidate) => candidate.isBot)) {
+      // Bot and guest matches are excluded so the leaderboard only reflects durable human accounts.
+      const hasNonLeaderboardPlayer = roomPayload.players.some(
+        (candidate: PlayerState) => candidate.isBot || candidate.name.startsWith("guest_"),
+      );
+      if (roomPayload.status === "finished" && roomPayload.lastResult && !hasNonLeaderboardPlayer) {
         const [playerOne, playerTwo] = roomPayload.players;
         if (roomPayload.lastResult.winner === "player-one") {
           await recordMatchResult(
@@ -437,5 +470,12 @@ export default {
     }
 
     return Response.json({ error: "Not found" }, { status: 404 });
+  },
+
+  // Runs on the "triggers.crons" schedule in wrangler.jsonc to purge stale guest accounts.
+  async scheduled(_controller: ScheduledController, env: Env, ctx: ExecutionContext): Promise<void> {
+    const appEnv = env as AppEnv;
+    if (!appEnv.DB) return;
+    ctx.waitUntil(deleteStaleGuestAccounts(appEnv.DB));
   },
 } satisfies ExportedHandler<Env>;

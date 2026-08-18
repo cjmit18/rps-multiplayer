@@ -73,10 +73,13 @@ describe("room API normalization", () => {
 				status: "waiting",
 			},
 			"room-id",
-			"alice"
+			"alice-id"
 		);
 
-		expect(room.players).toEqual([{ name: "alice", move: "rock" }, { name: "bob" }]);
+		expect(room.players).toEqual([
+			{ userId: "alice-id", name: "alice", move: "rock" },
+			{ userId: "bob-id", name: "bob" },
+		]);
 	});
 
 	it("keeps the other player's move hidden after the round finishes", () => {
@@ -88,10 +91,13 @@ describe("room API normalization", () => {
 				lastResult: { winner: "player-one", playerOneMove: "rock", playerTwoMove: "scissors" },
 			},
 			"room-id",
-			"alice"
+			"alice-id"
 		);
 
-		expect(room.players).toEqual([{ name: "alice", move: "rock" }, { name: "bob" }]);
+		expect(room.players).toEqual([
+			{ userId: "alice-id", name: "alice", move: "rock" },
+			{ userId: "bob-id", name: "bob" },
+		]);
 		expect(room.lastResult).toEqual({ winner: "player-one" });
 	});
 });

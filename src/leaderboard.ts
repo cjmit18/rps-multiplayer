@@ -28,8 +28,9 @@ async function ensureLeaderboardTable(db: D1Database): Promise<void> {
 
 export async function getLeaderboardFromDb(db: D1Database): Promise<LeaderboardEntry[]> {
   await ensureLeaderboardTable(db);
+  // Guests are excluded even though write-time already skips them, in case older rows exist.
   const result = await db.prepare(
-    "SELECT user_id, name, wins, losses, ties FROM leaderboard ORDER BY wins DESC, losses ASC, name ASC LIMIT 20"
+    "SELECT user_id, name, wins, losses, ties FROM leaderboard WHERE name NOT LIKE 'guest\\_%' ESCAPE '\\' ORDER BY wins DESC, losses ASC, name ASC LIMIT 20"
   ).all<{ user_id: string | null; name: string; wins: number; losses: number; ties: number }>();
 
   return result.results.map((row) => ({

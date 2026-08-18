@@ -106,6 +106,19 @@ export async function createGuestUser(db: D1Database): Promise<AuthUser> {
   throw new Error("Unable to create a guest account");
 }
 
+// Guest accounts and their leaderboard rows older than maxAgeMs are purged so D1 doesn't grow forever.
+export async function deleteStaleGuestAccounts(db: D1Database, maxAgeMs: number = 7 * 24 * 60 * 60 * 1000): Promise<number> {
+  // Matches SQLite's CURRENT_TIMESTAMP format ("YYYY-MM-DD HH:MM:SS") so the string comparison below is valid.
+  const cutoff = new Date(Date.now() - maxAgeMs).toISOString().slice(0, 19).replace("T", " ");
+  await db.prepare(
+    "DELETE FROM leaderboard WHERE user_id IN (SELECT id FROM users WHERE username LIKE 'guest\\_%' ESCAPE '\\' AND created_at < ?)",
+  ).bind(cutoff).run();
+  const result = await db.prepare(
+    "DELETE FROM users WHERE username LIKE 'guest\\_%' ESCAPE '\\' AND created_at < ?",
+  ).bind(cutoff).run();
+  return result.meta.changes ?? 0;
+}
+
 export async function verifyUser(db: D1Database, username: string, password: string): Promise<AuthUser | undefined> {
   const user = await db.prepare(
     "SELECT id, username, password_hash, password_salt FROM users WHERE username = ?",

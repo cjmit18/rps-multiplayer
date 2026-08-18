@@ -1,0 +1,25 @@
+{
+	"name": "rps-multiplayer",
+	"private": true,
+	"version": "0.1.0",
+	"type": "module",
+	"engines": {
+		"node": ">=20"
+	},
+	"scripts": {
+		"postinstall": "wrangler types",
+		"dev": "wrangler dev",
+		"deploy": "wrangler deploy",
+		"test": "vitest run",
+		"typecheck": "tsc --noEmit",
+		"db:migrate:local": "wrangler d1 migrations apply rps-multiplayer-db --local",
+		"db:migrate:remote": "wrangler d1 migrations apply rps-multiplayer-db --remote"
+	},
+	"devDependencies": {
+		"@cloudflare/vitest-pool-workers": "^0.21.3",
+		"@types/node": "^24.13.3",
+		"typescript": "^7.0.2",
+		"vitest": "^4.1.10",
+		"wrangler": "^4.123.0"
+	}
+}
